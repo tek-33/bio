@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Micro-Lab: Bio-Realistic Siamese Fighting Fish Observation v5.2</title>
+    <title>Micro-Lab: Bio-Realistic Siamese Fighting Fish v7.0 (Holographic Avatar)</title>
     <style>
         body {
             margin: 0;
@@ -25,6 +25,7 @@
             width: 100%;
             height: 100%;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             background: radial-gradient(circle, rgba(15, 0, 0, 0.95) 0%, rgba(0, 0, 0, 1) 100%);
@@ -42,6 +43,7 @@
             text-transform: uppercase;
             letter-spacing: 5px;
             box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+            margin-bottom: 20px;
         }
 
         #start-btn:hover {
@@ -85,6 +87,7 @@
 
     <div id="overlay">
         <button id="start-btn">Initiate Micro-Scan</button>
+        <div style="color: #666; font-size: 12px;">ระบบ AI Hologram พร้อมบรรยายภาษาไทย</div>
     </div>
 
     <div id="hud">
@@ -117,10 +120,35 @@
         let width, height, arteryY, veinY;
         let zoom = 0.2;
         let isStarted = false;
+        let isSpeaking = false;
         const particles = [];
         const chromatophores = [];
         const capillaryPaths = [];
         let frame = 0;
+
+        // Avatar State
+        let blinkState = 0; // 0=open, 1=closing, 2=opening
+        let eyeHeight = 4;
+
+        // --- Voice System ---
+        function speakBioLesson() {
+            const synth = window.speechSynthesis;
+            const text = "สวัสดีครับ ยินดีต้อนรับเข้าสู่การสังเกตการไหลเวียนเลือดในหางปลากัด... ด้านบนที่มีสีแดงคือหลอดเลือดอาร์เทอรี เลือดจะไหลจากส่วนหัวไปส่วนหางด้วยแรงดันสูง... ส่วนด้านล่างสีน้ำเงินคือหลอดเลือดเวน เลือดจะไหลกลับจากส่วนหางไปสู่หัวด้วยแรงดันต่ำ... สังเกตการแลกเปลี่ยนก๊าซที่หลอดเลือดฝอยตรงกลางได้เลยครับ";
+
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'th-TH';
+            utter.rate = 0.9;
+            utter.pitch = 1.0;
+
+            utter.onstart = () => { isSpeaking = true; };
+            utter.onend = () => { isSpeaking = false; };
+
+            const voices = synth.getVoices();
+            const thVoice = voices.find(v => v.lang.includes('TH'));
+            if (thVoice) utter.voice = thVoice;
+
+            synth.speak(utter);
+        }
 
         function resize() {
             width = canvas.width = window.innerWidth;
@@ -169,11 +197,9 @@
                 this.brownianX = 0;
                 this.brownianY = 0;
             }
-
             update(pulse) {
                 this.brownianX = (Math.random() - 0.5) * 1.5;
                 this.brownianY = (Math.random() - 0.5) * 1.5;
-
                 if (this.mode === 'artery') {
                     this.x += (6 + pulse * 10) * this.speedMult;
                     this.y = arteryY + this.offsetY;
@@ -191,25 +217,16 @@
                     if (this.x < -100) this.init();
                 }
             }
-
             draw() {
                 ctx.save();
                 ctx.translate(this.x + this.brownianX, this.y + this.brownianY);
-
                 let r, g, b, a = 0.7;
                 if (this.mode === 'artery') { [r, g, b] = [255, 40, 30]; }
                 else if (this.mode === 'vein') { [r, g, b] = [30, 60, 255]; }
-                else {
-                    const blend = this.t;
-                    r = 255 - (blend * 210);
-                    b = 30 + (blend * 210);
-                    g = 40;
-                }
-
+                else { const blend = this.t; r = 255 - (blend * 210); b = 30 + (blend * 210); g = 40; }
                 const grad = ctx.createRadialGradient(-1, -1, 0, 0, 0, this.size);
                 grad.addColorStop(0, `rgba(${r + 40}, ${g + 40}, ${b + 40}, ${a})`);
                 grad.addColorStop(1, `rgba(${r - 40}, ${g}, ${b - 40}, ${a})`);
-
                 ctx.fillStyle = grad;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, this.size * 1.2, this.size * 0.8, Math.PI / 4, 0, Math.PI * 2);
@@ -236,12 +253,10 @@
             ctx.lineWidth = 95 + pulse;
             ctx.strokeStyle = 'rgba(70, 10, 10, 0.35)';
             ctx.beginPath(); ctx.moveTo(-100, arteryY); ctx.lineTo(width + 100, arteryY); ctx.stroke();
-
             ctx.shadowColor = 'rgba(0,0,255,0.1)';
             ctx.lineWidth = 105;
             ctx.strokeStyle = 'rgba(10, 10, 70, 0.35)';
             ctx.beginPath(); ctx.moveTo(-100, veinY); ctx.lineTo(width + 100, veinY); ctx.stroke();
-
             ctx.shadowBlur = 0;
             ctx.lineWidth = 16;
             ctx.strokeStyle = 'rgba(110, 40, 40, 0.08)';
@@ -252,32 +267,91 @@
             });
         }
 
-        // ส่วนที่ซูมตามเส้นเลือด
-        function drawVesselInfo() {
+        // --- HOLOGRAPHIC AVATAR DRAWER ---
+        function drawAvatar(x, y) {
             ctx.save();
-            ctx.font = "14px 'Courier New'";
-            ctx.textAlign = "center";
-            const infoOpacity = Math.min(0.6, zoom * 0.6);
-            ctx.fillStyle = `rgba(255, 60, 60, ${infoOpacity})`;
-            ctx.fillText("HIGH PRESSURE ARTERIAL FLOW →", width * 0.5, arteryY - 85);
-            ctx.fillStyle = `rgba(80, 120, 255, ${infoOpacity})`;
-            ctx.fillText("← LOW PRESSURE VENOUS RETURN", width * 0.5, veinY + 95);
+            ctx.translate(x, y);
+
+            // Hologram Effect
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#0f0';
+            ctx.strokeStyle = '#0f0';
+            ctx.fillStyle = 'rgba(0, 50, 20, 0.5)';
+            ctx.lineWidth = 2;
+
+            // 1. Frame / Box
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(100, 0);
+            ctx.lineTo(100, 120);
+            ctx.lineTo(10, 120);
+            ctx.lineTo(0, 110);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(0, 20, 10, 0.7)';
+            ctx.fill();
+
+            // Label
+            ctx.font = "10px Courier New";
+            ctx.fillStyle = "#0f0";
+            ctx.fillText("AI INSTRUCTOR", 10, 15);
+
+            // 2. Head Shape
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.8)';
+            ctx.beginPath();
+            ctx.ellipse(50, 60, 25, 35, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 3. Eyes (Blinking Logic)
+            if (Math.random() > 0.98 && blinkState === 0) blinkState = 1; // Start Blink
+
+            if (blinkState === 1) { eyeHeight -= 0.5; if (eyeHeight <= 0.5) blinkState = 2; } // Closing
+            else if (blinkState === 2) { eyeHeight += 0.5; if (eyeHeight >= 4) blinkState = 0; } // Opening
+
+            ctx.fillStyle = '#aff';
+            ctx.beginPath();
+            ctx.ellipse(40, 55, 3, eyeHeight, 0, 0, Math.PI * 2); // Left Eye
+            ctx.ellipse(60, 55, 3, eyeHeight, 0, 0, Math.PI * 2); // Right Eye
+            ctx.fill();
+
+            // 4. Mouth (Lip Sync Logic)
+            let mouthH = 1;
+            let mouthW = 10;
+            if (isSpeaking) {
+                // Randomize mouth opening when speaking
+                mouthH = 2 + Math.random() * 8;
+                mouthW = 10 + Math.random() * 2;
+            }
+
+            ctx.fillStyle = '#0f0';
+            ctx.beginPath();
+            // Draw a hexagonal mouth shape that expands vertically
+            ctx.moveTo(50 - mouthW / 2, 80); // Left corner
+            ctx.lineTo(50 - mouthW / 3, 80 - mouthH / 2); // Top left curve
+            ctx.lineTo(50 + mouthW / 3, 80 - mouthH / 2); // Top right curve
+            ctx.lineTo(50 + mouthW / 2, 80); // Right corner
+            ctx.lineTo(50 + mouthW / 3, 80 + mouthH / 2); // Bottom right curve
+            ctx.lineTo(50 - mouthW / 3, 80 + mouthH / 2); // Bottom left curve
+            ctx.closePath();
+            ctx.fill();
+
+            // Scanlines on Avatar
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+            for (let i = 0; i < 120; i += 4) {
+                ctx.fillRect(0, i, 100, 1);
+            }
+
             ctx.restore();
         }
 
-        // ส่วนที่ตรึงไว้ที่ขอบจอ (ไม่ซูม)
         function drawFixedLabels() {
             ctx.save();
             ctx.font = "bold 24px 'Courier New'";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             const labelOpacity = Math.min(0.8, isStarted ? 1 : 0);
-
-            // ขอบซ้าย
             ctx.fillStyle = `rgba(0, 255, 170, ${labelOpacity})`;
             ctx.fillText("[ HEAD / หัว ]", 120, height * 0.5);
-
-            // ขอบขวา
             ctx.fillStyle = `rgba(0, 170, 255, ${labelOpacity})`;
             ctx.fillText("[ TAIL / หาง ]", width - 120, height * 0.5);
             ctx.restore();
@@ -292,35 +366,30 @@
 
             ctx.clearRect(0, 0, width, height);
 
-            // --- เริ่มโหมดซูม ---
             ctx.save();
             ctx.translate(width / 2, height / 2);
             ctx.scale(zoom, zoom);
             ctx.translate(-width / 2, -height / 2);
 
             drawTissue();
-            if (isStarted) drawVesselInfo();
-
             const pulse = Math.pow(Math.sin(frame * 0.055), 12) * 2;
             drawVessels(pulse * 10);
 
-            particles.forEach(p => {
-                p.update(pulse);
-                p.draw();
-            });
+            particles.forEach(p => { p.update(pulse); p.draw(); });
             ctx.restore();
-            // --- จบโหมดซูม ---
-
-            // วาดป้ายกำกับไว้ข้างบนสุด (ไม่โดนซูม ไม่ตกขอบ)
-            if (isStarted) drawFixedLabels();
 
             if (isStarted) {
+                drawFixedLabels();
+
+                // Draw Avatar at Bottom Right
+                drawAvatar(width - 130, height - 150);
+
+                // Vignette & Scanlines
                 const vign = ctx.createRadialGradient(width / 2, height / 2, width * 0.1, width / 2, height / 2, width * 0.8);
                 vign.addColorStop(0, 'transparent');
                 vign.addColorStop(1, 'rgba(0,0,0,0.7)');
                 ctx.fillStyle = vign;
                 ctx.fillRect(0, 0, width, height);
-
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
                 for (let i = 0; i < height; i += 4) ctx.fillRect(0, i, width, 1);
             }
@@ -332,15 +401,18 @@
             isStarted = true;
             overlay.style.opacity = '0';
             hud.style.opacity = '1';
-            setTimeout(() => overlay.style.display = 'none', 1500);
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                speakBioLesson();
+            }, 1500);
         });
 
         window.addEventListener('resize', resize);
         resize();
         for (let i = 0; i < 480; i++) particles.push(new BloodCell());
+        window.speechSynthesis.getVoices();
         animate();
     </script>
 </body>
-
 
 </html>
