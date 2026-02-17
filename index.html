@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Micro-Lab: Bio-Realistic Siamese Fighting Fish v7.0 (Holographic Avatar)</title>
+    <title>Micro-Lab: Bio-Realistic Siamese Fighting Fish v7.2 (Studio Voice)</title>
     <style>
         body {
             margin: 0;
@@ -87,7 +87,7 @@
 
     <div id="overlay">
         <button id="start-btn">Initiate Micro-Scan</button>
-        <div style="color: #666; font-size: 12px;">ระบบ AI Hologram พร้อมบรรยายภาษาไทย</div>
+        <div style="color: #666; font-size: 12px;">ระบบ AI Hologram กำลังโหลดเสียงจากไฟล์ voice.MP3</div>
     </div>
 
     <div id="hud">
@@ -99,10 +99,8 @@
         <span class="highlight">LEFT: HEAD (ส่วนหัว)</span><br>
         <span class="highlight">RIGHT: TAIL (ส่วนหาง)</span><br>
         <hr style="border: 0; border-top: 1px solid #600; margin: 10px 0;">
-
         <span style="color: #ff4444;"><span class="label">● ARTERY:</span> แรงดันสูง</span><br>
         <span style="font-size: 11px; margin-left: 20px; color: #ccc;">ไหล: หัว → หาง (ซ้ายไปขวา)</span><br>
-
         <br>
         <span style="color: #4488ff;"><span class="label">● VEIN:</span> แรงดันต่ำ</span><br>
         <span style="font-size: 11px; margin-left: 20px; color: #ccc;">ไหล: หาง → หัว (ขวาไปซ้าย)</span><br>
@@ -117,6 +115,10 @@
         const overlay = document.getElementById('overlay');
         const hud = document.getElementById('hud');
 
+        // --- Studio Voice Setup ---
+        // ใช้ชื่อไฟล์ voice.MP3 ให้ตรงกับใน GitHub ของคุณ (Case Sensitive)
+        const bioAudio = new Audio('voice.MP3');
+
         let width, height, arteryY, veinY;
         let zoom = 0.2;
         let isStarted = false;
@@ -127,27 +129,16 @@
         let frame = 0;
 
         // Avatar State
-        let blinkState = 0; // 0=open, 1=closing, 2=opening
+        let blinkState = 0;
         let eyeHeight = 4;
 
-        // --- Voice System ---
         function speakBioLesson() {
-            const synth = window.speechSynthesis;
-            const text = "สวัสดีครับ ยินดีต้อนรับเข้าสู่การสังเกตการไหลเวียนเลือดในหางปลากัด... ด้านบนที่มีสีแดงคือหลอดเลือดอาร์เทอรี เลือดจะไหลจากส่วนหัวไปส่วนหางด้วยแรงดันสูง... ส่วนด้านล่างสีน้ำเงินคือหลอดเลือดเวน เลือดจะไหลกลับจากส่วนหางไปสู่หัวด้วยแรงดันต่ำ... สังเกตการแลกเปลี่ยนก๊าซที่หลอดเลือดฝอยตรงกลางได้เลยครับ";
+            // เล่นไฟล์เสียงแทนการใช้เสียงระบบ
+            bioAudio.play().catch(e => console.error("Audio playback failed:", e));
 
-            const utter = new SpeechSynthesisUtterance(text);
-            utter.lang = 'th-TH';
-            utter.rate = 0.9;
-            utter.pitch = 1.0;
-
-            utter.onstart = () => { isSpeaking = true; };
-            utter.onend = () => { isSpeaking = false; };
-
-            const voices = synth.getVoices();
-            const thVoice = voices.find(v => v.lang.includes('TH'));
-            if (thVoice) utter.voice = thVoice;
-
-            synth.speak(utter);
+            // ตรวจสอบสถานะการเล่นเพื่อขยับปาก
+            bioAudio.onplay = () => { isSpeaking = true; };
+            bioAudio.onended = () => { isSpeaking = false; };
         }
 
         function resize() {
@@ -267,79 +258,64 @@
             });
         }
 
-        // --- HOLOGRAPHIC AVATAR DRAWER ---
         function drawAvatar(x, y) {
             ctx.save();
             ctx.translate(x, y);
-
-            // Hologram Effect
             ctx.shadowBlur = 10;
             ctx.shadowColor = '#0f0';
             ctx.strokeStyle = '#0f0';
             ctx.fillStyle = 'rgba(0, 50, 20, 0.5)';
             ctx.lineWidth = 2;
 
-            // 1. Frame / Box
+            // Frame
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(100, 0);
-            ctx.lineTo(100, 120);
-            ctx.lineTo(10, 120);
-            ctx.lineTo(0, 110);
-            ctx.closePath();
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(0, 20, 10, 0.7)';
-            ctx.fill();
+            ctx.moveTo(0, 0); ctx.lineTo(100, 0); ctx.lineTo(100, 120); ctx.lineTo(10, 120); ctx.lineTo(0, 110);
+            ctx.closePath(); ctx.stroke();
+            ctx.fillStyle = 'rgba(0, 20, 10, 0.7)'; ctx.fill();
 
             // Label
             ctx.font = "10px Courier New";
             ctx.fillStyle = "#0f0";
             ctx.fillText("AI INSTRUCTOR", 10, 15);
 
-            // 2. Head Shape
+            // Head
             ctx.strokeStyle = 'rgba(0, 255, 100, 0.8)';
-            ctx.beginPath();
-            ctx.ellipse(50, 60, 25, 35, 0, 0, Math.PI * 2);
-            ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(50, 60, 25, 35, 0, 0, Math.PI * 2); ctx.stroke();
 
-            // 3. Eyes (Blinking Logic)
-            if (Math.random() > 0.98 && blinkState === 0) blinkState = 1; // Start Blink
-
-            if (blinkState === 1) { eyeHeight -= 0.5; if (eyeHeight <= 0.5) blinkState = 2; } // Closing
-            else if (blinkState === 2) { eyeHeight += 0.5; if (eyeHeight >= 4) blinkState = 0; } // Opening
+            // Eyes Blink
+            if (Math.random() > 0.98 && blinkState === 0) blinkState = 1;
+            if (blinkState === 1) { eyeHeight -= 0.5; if (eyeHeight <= 0.5) blinkState = 2; }
+            else if (blinkState === 2) { eyeHeight += 0.5; if (eyeHeight >= 4) blinkState = 0; }
 
             ctx.fillStyle = '#aff';
             ctx.beginPath();
-            ctx.ellipse(40, 55, 3, eyeHeight, 0, 0, Math.PI * 2); // Left Eye
-            ctx.ellipse(60, 55, 3, eyeHeight, 0, 0, Math.PI * 2); // Right Eye
+            ctx.ellipse(40, 55, 3, eyeHeight, 0, 0, Math.PI * 2);
+            ctx.ellipse(60, 55, 3, eyeHeight, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // 4. Mouth (Lip Sync Logic)
+            // Lip Sync Mouth
             let mouthH = 1;
             let mouthW = 10;
             if (isSpeaking) {
-                // Randomize mouth opening when speaking
-                mouthH = 2 + Math.random() * 8;
-                mouthW = 10 + Math.random() * 2;
+                // ขยับปากแบบ Random ตามเฟรมเมื่อเสียงเล่น
+                mouthH = 2 + Math.random() * 10;
+                mouthW = 10 + Math.random() * 4;
             }
 
             ctx.fillStyle = '#0f0';
             ctx.beginPath();
-            // Draw a hexagonal mouth shape that expands vertically
-            ctx.moveTo(50 - mouthW / 2, 80); // Left corner
-            ctx.lineTo(50 - mouthW / 3, 80 - mouthH / 2); // Top left curve
-            ctx.lineTo(50 + mouthW / 3, 80 - mouthH / 2); // Top right curve
-            ctx.lineTo(50 + mouthW / 2, 80); // Right corner
-            ctx.lineTo(50 + mouthW / 3, 80 + mouthH / 2); // Bottom right curve
-            ctx.lineTo(50 - mouthW / 3, 80 + mouthH / 2); // Bottom left curve
+            ctx.moveTo(50 - mouthW / 2, 80);
+            ctx.lineTo(50 - mouthW / 3, 80 - mouthH / 2);
+            ctx.lineTo(50 + mouthW / 3, 80 - mouthH / 2);
+            ctx.lineTo(50 + mouthW / 2, 80);
+            ctx.lineTo(50 + mouthW / 3, 80 + mouthH / 2);
+            ctx.lineTo(50 - mouthW / 3, 80 + mouthH / 2);
             ctx.closePath();
             ctx.fill();
 
-            // Scanlines on Avatar
+            // Scanlines
             ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-            for (let i = 0; i < 120; i += 4) {
-                ctx.fillRect(0, i, 100, 1);
-            }
+            for (let i = 0; i < 120; i += 4) { ctx.fillRect(0, i, 100, 1); }
 
             ctx.restore();
         }
@@ -365,7 +341,6 @@
             }
 
             ctx.clearRect(0, 0, width, height);
-
             ctx.save();
             ctx.translate(width / 2, height / 2);
             ctx.scale(zoom, zoom);
@@ -374,17 +349,12 @@
             drawTissue();
             const pulse = Math.pow(Math.sin(frame * 0.055), 12) * 2;
             drawVessels(pulse * 10);
-
             particles.forEach(p => { p.update(pulse); p.draw(); });
             ctx.restore();
 
             if (isStarted) {
                 drawFixedLabels();
-
-                // Draw Avatar at Bottom Right
                 drawAvatar(width - 130, height - 150);
-
-                // Vignette & Scanlines
                 const vign = ctx.createRadialGradient(width / 2, height / 2, width * 0.1, width / 2, height / 2, width * 0.8);
                 vign.addColorStop(0, 'transparent');
                 vign.addColorStop(1, 'rgba(0,0,0,0.7)');
@@ -393,7 +363,6 @@
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
                 for (let i = 0; i < height; i += 4) ctx.fillRect(0, i, width, 1);
             }
-
             requestAnimationFrame(animate);
         }
 
@@ -403,14 +372,13 @@
             hud.style.opacity = '1';
             setTimeout(() => {
                 overlay.style.display = 'none';
-                speakBioLesson();
+                speakBioLesson(); // เริ่มเล่นเสียง
             }, 1500);
         });
 
         window.addEventListener('resize', resize);
         resize();
         for (let i = 0; i < 480; i++) particles.push(new BloodCell());
-        window.speechSynthesis.getVoices();
         animate();
     </script>
 </body>
