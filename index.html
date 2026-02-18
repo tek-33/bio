@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Micro-Lab: Bio-Realistic Siamese Fighting Fish v7.2 (Studio Voice)</title>
+    <title>Micro-Lab: Bio-Realistic Siamese Fighting Fish v7.0 (Holographic Avatar)</title>
     <style>
         body {
             margin: 0;
@@ -77,17 +77,16 @@
 
         .label {
             display: inline-block;
-            width: 85px;
+            width: 100px;
             font-weight: bold;
         }
     </style>
 </head>
 
 <body>
-
     <div id="overlay">
         <button id="start-btn">Initiate Micro-Scan</button>
-        <div style="color: #666; font-size: 12px;">ระบบ AI Hologram กำลังโหลดเสียงจากไฟล์ voice.MP3</div>
+        <div style="color: #666; font-size: 12px;">ระบบ AI Hologram พร้อมคำอธิบายหลอดเลือดฝอย</div>
     </div>
 
     <div id="hud">
@@ -99,8 +98,15 @@
         <span class="highlight">LEFT: HEAD (ส่วนหัว)</span><br>
         <span class="highlight">RIGHT: TAIL (ส่วนหาง)</span><br>
         <hr style="border: 0; border-top: 1px solid #600; margin: 10px 0;">
+
         <span style="color: #ff4444;"><span class="label">● ARTERY:</span> แรงดันสูง</span><br>
         <span style="font-size: 11px; margin-left: 20px; color: #ccc;">ไหล: หัว → หาง (ซ้ายไปขวา)</span><br>
+
+        <br>
+        <span style="color: #ffffff;"><span class="label">● CAPILLARY:</span> หลอดเลือดฝอย</span><br>
+        <span style="font-size: 11px; margin-left: 20px; color: #0f0;">เชื่อมต่อ Artery และ Vein</span><br>
+        <span style="font-size: 11px; margin-left: 20px; color: #0f0;">ความเร็วต่ำ: เพื่อแลกเปลี่ยนก๊าซ</span><br>
+
         <br>
         <span style="color: #4488ff;"><span class="label">● VEIN:</span> แรงดันต่ำ</span><br>
         <span style="font-size: 11px; margin-left: 20px; color: #ccc;">ไหล: หาง → หัว (ขวาไปซ้าย)</span><br>
@@ -115,10 +121,6 @@
         const overlay = document.getElementById('overlay');
         const hud = document.getElementById('hud');
 
-        // --- Studio Voice Setup ---
-        // ใช้ชื่อไฟล์ voice.MP3 ให้ตรงกับใน GitHub ของคุณ (Case Sensitive)
-        const bioAudio = new Audio('voice.MP3');
-
         let width, height, arteryY, veinY;
         let zoom = 0.2;
         let isStarted = false;
@@ -128,17 +130,18 @@
         const capillaryPaths = [];
         let frame = 0;
 
-        // Avatar State
         let blinkState = 0;
         let eyeHeight = 4;
 
-        function speakBioLesson() {
-            // เล่นไฟล์เสียงแทนการใช้เสียงระบบ
-            bioAudio.play().catch(e => console.error("Audio playback failed:", e));
+        // --- Audio Logic ---
+        const audio = new Audio('voice.mp3');
 
-            // ตรวจสอบสถานะการเล่นเพื่อขยับปาก
-            bioAudio.onplay = () => { isSpeaking = true; };
-            bioAudio.onended = () => { isSpeaking = false; };
+        function speakBioLesson() {
+            audio.play().then(() => {
+                isSpeaking = true;
+            }).catch(err => console.log("Audio waiting for user interaction..."));
+
+            audio.onended = () => { isSpeaking = false; };
         }
 
         function resize() {
@@ -197,6 +200,7 @@
                     if (this.x > this.path.startX && Math.random() > 0.985) this.mode = 'capillary';
                     if (this.x > width + 100) this.x = -50;
                 } else if (this.mode === 'capillary') {
+                    // Slow flow in capillaries for exchange
                     this.t += 0.0025 * this.speedMult;
                     const t = this.t;
                     this.x = (1 - t) ** 3 * this.path.startX + 3 * (1 - t) ** 2 * t * this.path.cp1x + 3 * (1 - t) * t ** 2 * this.path.cp2x + t ** 3 * this.path.endX;
@@ -214,7 +218,13 @@
                 let r, g, b, a = 0.7;
                 if (this.mode === 'artery') { [r, g, b] = [255, 40, 30]; }
                 else if (this.mode === 'vein') { [r, g, b] = [30, 60, 255]; }
-                else { const blend = this.t; r = 255 - (blend * 210); b = 30 + (blend * 210); g = 40; }
+                else {
+                    // Color blend in capillary (Red to Blue)
+                    const blend = this.t;
+                    r = 255 - (blend * 210);
+                    b = 30 + (blend * 210);
+                    g = 40 + (Math.sin(blend * Math.PI) * 50);
+                }
                 const grad = ctx.createRadialGradient(-1, -1, 0, 0, 0, this.size);
                 grad.addColorStop(0, `rgba(${r + 40}, ${g + 40}, ${b + 40}, ${a})`);
                 grad.addColorStop(1, `rgba(${r - 40}, ${g}, ${b - 40}, ${a})`);
@@ -250,7 +260,7 @@
             ctx.beginPath(); ctx.moveTo(-100, veinY); ctx.lineTo(width + 100, veinY); ctx.stroke();
             ctx.shadowBlur = 0;
             ctx.lineWidth = 16;
-            ctx.strokeStyle = 'rgba(110, 40, 40, 0.08)';
+            ctx.strokeStyle = 'rgba(200, 200, 200, 0.05)'; // Brightened capillaries slightly
             capillaryPaths.forEach((p) => {
                 ctx.beginPath(); ctx.moveTo(p.startX, p.startY);
                 ctx.bezierCurveTo(p.cp1x, p.cp1y, p.cp2x, p.cp2y, p.endX, p.endY);
@@ -261,91 +271,41 @@
         function drawAvatar(x, y) {
             ctx.save();
             ctx.translate(x, y);
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#0f0';
-            ctx.strokeStyle = '#0f0';
-            ctx.fillStyle = 'rgba(0, 50, 20, 0.5)';
-            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10; ctx.shadowColor = '#0f0'; ctx.strokeStyle = '#0f0';
+            ctx.fillStyle = 'rgba(0, 50, 20, 0.5)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(100, 0); ctx.lineTo(100, 120); ctx.lineTo(10, 120); ctx.lineTo(0, 110); ctx.closePath();
+            ctx.stroke(); ctx.fill();
+            ctx.font = "10px Courier New"; ctx.fillStyle = "#0f0"; ctx.fillText("AI INSTRUCTOR", 10, 15);
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.8)'; ctx.beginPath(); ctx.ellipse(50, 60, 25, 35, 0, 0, Math.PI * 2); ctx.stroke();
 
-            // Frame
-            ctx.beginPath();
-            ctx.moveTo(0, 0); ctx.lineTo(100, 0); ctx.lineTo(100, 120); ctx.lineTo(10, 120); ctx.lineTo(0, 110);
-            ctx.closePath(); ctx.stroke();
-            ctx.fillStyle = 'rgba(0, 20, 10, 0.7)'; ctx.fill();
-
-            // Label
-            ctx.font = "10px Courier New";
-            ctx.fillStyle = "#0f0";
-            ctx.fillText("AI INSTRUCTOR", 10, 15);
-
-            // Head
-            ctx.strokeStyle = 'rgba(0, 255, 100, 0.8)';
-            ctx.beginPath(); ctx.ellipse(50, 60, 25, 35, 0, 0, Math.PI * 2); ctx.stroke();
-
-            // Eyes Blink
             if (Math.random() > 0.98 && blinkState === 0) blinkState = 1;
             if (blinkState === 1) { eyeHeight -= 0.5; if (eyeHeight <= 0.5) blinkState = 2; }
             else if (blinkState === 2) { eyeHeight += 0.5; if (eyeHeight >= 4) blinkState = 0; }
+            ctx.fillStyle = '#aff'; ctx.beginPath(); ctx.ellipse(40, 55, 3, eyeHeight, 0, 0, Math.PI * 2); ctx.ellipse(60, 55, 3, eyeHeight, 0, 0, Math.PI * 2); ctx.fill();
 
-            ctx.fillStyle = '#aff';
-            ctx.beginPath();
-            ctx.ellipse(40, 55, 3, eyeHeight, 0, 0, Math.PI * 2);
-            ctx.ellipse(60, 55, 3, eyeHeight, 0, 0, Math.PI * 2);
-            ctx.fill();
+            let mouthH = 1, mouthW = 10;
+            if (isSpeaking) { mouthH = 2 + Math.random() * 8; mouthW = 10 + Math.random() * 2; }
+            ctx.fillStyle = '#0f0'; ctx.beginPath(); ctx.moveTo(50 - mouthW / 2, 80); ctx.lineTo(50 - mouthW / 3, 80 - mouthH / 2); ctx.lineTo(50 + mouthW / 3, 80 - mouthH / 2); ctx.lineTo(50 + mouthW / 2, 80); ctx.lineTo(50 + mouthW / 3, 80 + mouthH / 2); ctx.lineTo(50 - mouthW / 3, 80 + mouthH / 2); ctx.closePath(); ctx.fill();
 
-            // Lip Sync Mouth
-            let mouthH = 1;
-            let mouthW = 10;
-            if (isSpeaking) {
-                // ขยับปากแบบ Random ตามเฟรมเมื่อเสียงเล่น
-                mouthH = 2 + Math.random() * 10;
-                mouthW = 10 + Math.random() * 4;
-            }
-
-            ctx.fillStyle = '#0f0';
-            ctx.beginPath();
-            ctx.moveTo(50 - mouthW / 2, 80);
-            ctx.lineTo(50 - mouthW / 3, 80 - mouthH / 2);
-            ctx.lineTo(50 + mouthW / 3, 80 - mouthH / 2);
-            ctx.lineTo(50 + mouthW / 2, 80);
-            ctx.lineTo(50 + mouthW / 3, 80 + mouthH / 2);
-            ctx.lineTo(50 - mouthW / 3, 80 + mouthH / 2);
-            ctx.closePath();
-            ctx.fill();
-
-            // Scanlines
             ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-            for (let i = 0; i < 120; i += 4) { ctx.fillRect(0, i, 100, 1); }
-
+            for (let i = 0; i < 120; i += 4) ctx.fillRect(0, i, 100, 1);
             ctx.restore();
         }
 
         function drawFixedLabels() {
-            ctx.save();
-            ctx.font = "bold 24px 'Courier New'";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
+            ctx.save(); ctx.font = "bold 24px 'Courier New'"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
             const labelOpacity = Math.min(0.8, isStarted ? 1 : 0);
-            ctx.fillStyle = `rgba(0, 255, 170, ${labelOpacity})`;
-            ctx.fillText("[ HEAD / หัว ]", 120, height * 0.5);
-            ctx.fillStyle = `rgba(0, 170, 255, ${labelOpacity})`;
-            ctx.fillText("[ TAIL / หาง ]", width - 120, height * 0.5);
+            ctx.fillStyle = `rgba(0, 255, 170, ${labelOpacity})`; ctx.fillText("[ HEAD / หัว ]", 120, height * 0.5);
+            ctx.fillStyle = `rgba(0, 170, 255, ${labelOpacity})`; ctx.fillText("[ TAIL / หาง ]", width - 120, height * 0.5);
             ctx.restore();
         }
 
         function animate() {
             frame++;
-            if (isStarted && zoom < 1.1) {
-                zoom += 0.0035;
-                document.getElementById('mag-val').innerText = Math.floor(zoom * 400);
-            }
-
+            if (isStarted && zoom < 1.1) { zoom += 0.0035; document.getElementById('mag-val').innerText = Math.floor(zoom * 400); }
             ctx.clearRect(0, 0, width, height);
             ctx.save();
-            ctx.translate(width / 2, height / 2);
-            ctx.scale(zoom, zoom);
-            ctx.translate(-width / 2, -height / 2);
-
+            ctx.translate(width / 2, height / 2); ctx.scale(zoom, zoom); ctx.translate(-width / 2, -height / 2);
             drawTissue();
             const pulse = Math.pow(Math.sin(frame * 0.055), 12) * 2;
             drawVessels(pulse * 10);
@@ -356,10 +316,8 @@
                 drawFixedLabels();
                 drawAvatar(width - 130, height - 150);
                 const vign = ctx.createRadialGradient(width / 2, height / 2, width * 0.1, width / 2, height / 2, width * 0.8);
-                vign.addColorStop(0, 'transparent');
-                vign.addColorStop(1, 'rgba(0,0,0,0.7)');
-                ctx.fillStyle = vign;
-                ctx.fillRect(0, 0, width, height);
+                vign.addColorStop(0, 'transparent'); vign.addColorStop(1, 'rgba(0,0,0,0.7)');
+                ctx.fillStyle = vign; ctx.fillRect(0, 0, width, height);
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
                 for (let i = 0; i < height; i += 4) ctx.fillRect(0, i, width, 1);
             }
@@ -372,7 +330,7 @@
             hud.style.opacity = '1';
             setTimeout(() => {
                 overlay.style.display = 'none';
-                speakBioLesson(); // เริ่มเล่นเสียง
+                speakBioLesson();
             }, 1500);
         });
 
